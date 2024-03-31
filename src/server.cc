@@ -1,93 +1,120 @@
-#include <memory>
-#include <mutex>
+#include "server.h"
 
-#include "../current/blocks/http/api.h"
-#include "../current/bricks/dflags/dflags.h"
-#include "../current/bricks/sync/waitable_atomic.h"
-
-DEFINE_uint16(port, 8080, "The local port to use.");
-DEFINE_uint32(n, 3, "Max number of audio streams");
+using namespace current::json;
 
 struct SharedState final {
   bool die = false;
   std::unordered_set<std::string> to_kill;
   std::map<std::string, std::thread> threads;
   std::map<std::string, std::string> channel_control;
-  bool channel_exists(const std::string& channel_id) const{
+  bool channel_exists(const std::string &channel_id) const {
     return channel_control.find(channel_id) != channel_control.end();
   }
 };
 
-struct ControlSignal final {
-  // TODO:
-  // think about/implement input/output channel switch command (for call redirects)
-  bool stop = false;
-};
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ParseDFlags(&argc, &argv);
 
   try {
-    auto& http = HTTP(current::net::AcquireLocalPort(FLAGS_port));
+    auto &http = HTTP(current::net::AcquireLocalPort(FLAGS_port));
 
     current::WaitableAtomic<SharedState> safe_state;
 
     // Need to join and remove finished sessions
-    auto joiner = std::thread([&safe_state]{
-      while(true) {
-          // Check halt condition
-          auto die = safe_state.ImmutableScopedAccessor()->die;
+    auto joiner = std::thread([&safe_state] {
+      while (true) {
+        // Check halt condition
+        auto die = safe_state.ImmutableScopedAccessor()->die;
 
-          // Stop workers if needed
-          safe_state.MutableUse([](SharedState& state) {
-              std::vector<std::string> to_join;
-              for (auto& pair : state.threads) {
-                  if (!state.channel_exists(pair.first)) {
-                      to_join.push_back(pair.first);
-                  }
-              }
-              for (auto &to_drop: to_join) {
-                  state.threads[to_drop].join();
-                  state.threads.erase(to_drop);
-              }
-          });
-
-          // Exit joiner
-          if(die){
-              break;
-          } else {
-              std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        // Stop workers if needed
+        safe_state.MutableUse([](SharedState &state) {
+          std::vector<std::string> to_join;
+          for (auto &pair : state.threads) {
+            if (!state.channel_exists(pair.first)) {
+              to_join.push_back(pair.first);
+            }
           }
+          for (auto &to_drop : to_join) {
+            state.threads[to_drop].join();
+            state.threads.erase(to_drop);
+          }
+        });
+
+        // Exit joiner
+        if (die) {
+          break;
+        } else {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
       }
     });
 
-    auto scope = http.Register("/", [&safe_state](Request r) {
-      std::string channel_id = r.body;
-      // TODO: do not forget to pass input/output port for channel creation handler
+    auto scope = http.Register("/channel", [&safe_state](Request r) {
+      if (!FLAGS_api_token.empty() &&
+          (FLAGS_api_token != r.url.query["api_token"])) {
+        r(vo_error("invalid token"), HTTPResponseCode.Forbidden);
+        return;
+      }
 
-      struct channel_validation{
-        bool is_valid = false;
-        std::string msg;
-      };
-
-      auto node_state = safe_state.MutableUse([channel_id, &safe_state](SharedState& state) {
-        if(state.channel_exists(channel_id)){
-          return channel_validation{false, "error: channel already exists\n"};
+      if (r.method == "DELETE") {
+        VOChannelDelete to_delete;
+        try {
+          to_delete = ParseJSON<VOChannelDelete>(r.body);
+        } catch (JSONSchemaException &e) {
+          r(e.OriginalDescription(), HTTPResponseCode.BadRequest);
+          return;
         }
-        if(state.channel_control.size() == FLAGS_n){
-          return channel_validation{false, "error: too many channels\n"};
+        std::string channel_id = to_delete.id;
+        auto has_channel =
+            safe_state.ImmutableUse([channel_id](const SharedState &state) {
+              return state.channel_exists(channel_id);
+            });
+        if (!has_channel) {
+          r(vo_error("error: unknown channel"));
+          return;
+        }
+        // Send kill signal to the channel
+        safe_state.MutableUse([channel_id](SharedState &state) {
+          state.to_kill.insert(channel_id);
+        });
+        r(vo_error("error: channel killed"));
+        return;
+      }
+      if (r.method != "POST") {
+        r(vo_error("error: not supported"), HTTPResponseCode.BadRequest);
+        return;
+      }
+
+      VOChannelCreate new_channel;
+      try {
+        new_channel = ParseJSON<VOChannelCreate>(r.body);
+      } catch (JSONSchemaException &e) {
+        r(e.OriginalDescription(), HTTPResponseCode.BadRequest);
+        return;
+      }
+
+      auto node_state = safe_state.MutableUse([new_channel, &safe_state](
+                                                  SharedState &state) {
+        if (state.channel_exists(new_channel.id)) {
+          return vo_error("error: channel already exists");
+        }
+        if (state.channel_control.size() == FLAGS_n) {
+          return vo_error("error: too many channels");
         }
         // Add channel
-        state.channel_control[channel_id] = "";
+        state.channel_control[new_channel.id] = "";
 
-        state.threads[channel_id] = std::thread([&safe_state, channel_id]() {
-          std::cout << "Channel '" << channel_id << "' is online" << std::endl;
-          while(true) {
+        state.threads[new_channel.id] = std::thread([&safe_state,
+                                                     new_channel]() {
+          std::cout << "Channel '" << new_channel.id << "' is online on port "
+                    << int(new_channel.in_port) << std::endl;
+          std::string channel_id = new_channel.id;
+          while (true) {
             auto control = safe_state.WaitFor(
-                [channel_id](SharedState const& state) {
+                [channel_id](SharedState const &state) {
                   return state.channel_exists(channel_id);
                 },
-                [channel_id](SharedState & state) {
+                [channel_id](SharedState &state) {
                   auto iter = state.to_kill.find(channel_id);
                   if (iter != state.to_kill.end()) {
                     state.channel_control.erase(channel_id);
@@ -98,50 +125,36 @@ int main(int argc, char** argv) {
                 },
                 // TODO: reduce this time (only for debug)
                 std::chrono::seconds(1));
-            if(control.stop) {
-              std::cout << "Channel '" << channel_id << "' has been stopped" << std::endl;
+            if (control.stop) {
+              std::cout << "Channel '" << channel_id << "' has been stopped"
+                        << std::endl;
               break;
             }
 
             // TODO: route the stream here
             // streaming_sockets example could perfectly fit there
-            std::cout << "[" << channel_id << "] worker tick" << std::endl;
+            std::cout << "[" << new_channel.id << "] worker tick" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
           }
         });
-        return channel_validation{true, "created"};
+        return vo_ok("created");
       });
-      r(node_state.msg, (node_state.is_valid ? HTTPResponseCode.OK : HTTPResponseCode.BadRequest));
+      r(node_state, (node_state.is_error ? HTTPResponseCode.BadRequest
+                                         : HTTPResponseCode.OK));
     });
 
-    scope += http.Register("/kill", [&safe_state](Request r) {
-      std::string channel_id = r.body;
-      auto has_channel = safe_state.ImmutableUse([channel_id](const SharedState& state) {
-        return state.channel_exists(channel_id);
-      });
-      if(!has_channel){
-        r("Error: unknown channel\n");
-        return;
-      }
-      // Send kill signal to the channel
-      safe_state.MutableUse([channel_id](SharedState& state) {
-        state.to_kill.insert(channel_id);
-      });
-      r("channel killed\n");
+    scope += http.Register("/stop", [&safe_state](Request r) {
+      safe_state.MutableUse([](SharedState &state) { state.die = true; });
+      r(vo_ok("server stop"));
     });
 
-    scope += http.Register("/stop", [&safe_state](Request r){
-      safe_state.MutableUse([](SharedState& state) {
-        state.die = true;
-      });
-      r("server stop\n");
-    });
-
-    std::cout << "listening  up to " << FLAGS_n << " streams on port " << FLAGS_port << std::endl;
+    std::cout << "listening up to " << FLAGS_n
+              << " streams. Admin server is on port " << FLAGS_port
+              << std::endl;
     joiner.join();
     std::cout << "Safe shutdown" << std::endl;
-  }
-  catch (current::net::SocketBindException const&) {
-    std::cout << "the local port " << FLAGS_port << " is already taken" << std::endl;
+  } catch (current::net::SocketBindException const &) {
+    std::cout << "the local port " << FLAGS_port << " is already taken"
+              << std::endl;
   }
 }
