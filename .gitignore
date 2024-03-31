@@ -1,3 +1,11 @@
+# Current
+CMakeLists.txt
+current/
+googletest/
+.current/
+.current_debug/
+
+
 # Prerequisites
 *.d
 
@@ -30,3 +38,5 @@
 *.exe
 *.out
 *.app
+current/
+googletest/
