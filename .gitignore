@@ -5,6 +5,9 @@ googletest/
 .current/
 .current_debug/
 
+# CLion
+.idea/
+
 
 # Prerequisites
 *.d

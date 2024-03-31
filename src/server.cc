@@ -35,27 +35,29 @@ int main(int argc, char** argv) {
     // Need to join and remove finished sessions
     auto joiner = std::thread([&safe_state]{
       while(true) {
-        auto die = safe_state.MutableUse([](SharedState& state){
-          if(state.die){
-            return true;
+          // Check halt condition
+          auto die = safe_state.ImmutableScopedAccessor()->die;
+
+          // Stop workers if needed
+          safe_state.MutableUse([](SharedState& state) {
+              std::vector<std::string> to_join;
+              for (auto& pair : state.threads) {
+                  if (!state.channel_exists(pair.first)) {
+                      to_join.push_back(pair.first);
+                  }
+              }
+              for (auto &to_drop: to_join) {
+                  state.threads[to_drop].join();
+                  state.threads.erase(to_drop);
+              }
+          });
+
+          // Exit joiner
+          if(die){
+              break;
+          } else {
+              std::this_thread::sleep_for(std::chrono::milliseconds(1000));
           }
-          std::vector<std::string> to_join;
-          for (auto& pair : state.threads) {
-            std::string channel_id = pair.first;
-            if (!state.channel_exists(channel_id)) {
-              to_join.push_back(pair.first);
-              pair.second.join();
-            }
-          }
-          for(auto& to_drop: to_join){
-            state.threads.erase(to_drop);
-          }
-          return false;
-        });
-        if(die){
-          break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
       }
     });
 
