@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 
     auto scope = http.Register("/channel", [&safe_state](Request r) {
       if (!FLAGS_api_token.empty() &&
-          (FLAGS_api_token != r.url.query["api_token"])) {
+          (!r.headers.Has("api_token") || (FLAGS_api_token != r.headers["api_token"].value))) {
         r(VOResponse::Error("invalid token"), HTTPResponseCode.Forbidden);
         return;
       }
@@ -68,6 +68,7 @@ int main(int argc, char **argv) {
           r(e.OriginalDescription(), HTTPResponseCode.BadRequest);
           return;
         }
+
         std::string channel_id = to_delete.id;
         auto has_channel =
             safe_state.ImmutableUse([channel_id](const SharedState &state) {
