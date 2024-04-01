@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
     auto joiner = std::thread(sessions_collector, &safe_state);
 
     auto scope = http.Register("/channel", [&safe_state](Request r) {
+      // validate token
       if (!FLAGS_api_token.empty() &&
           (!r.headers.Has("api_token") ||
            (FLAGS_api_token != r.headers["api_token"].value))) {
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
         return;
       }
 
+      // handle channel deletion
       if (r.method == "DELETE") {
         VOChannelDelete to_delete;
         try {
@@ -33,22 +35,15 @@ int main(int argc, char **argv) {
           r(e.OriginalDescription(), HTTPResponseCode.BadRequest);
           return;
         }
-
-        std::string channel_id = to_delete.id;
-        auto has_channel =
-            safe_state.ImmutableUse([channel_id](const SharedState &state) {
-              return state.channel_exists(channel_id);
-            });
-        if (!has_channel) {
-          r(VOResponse::Error("error: unknown channel"));
-          return;
-        }
-        // Send kill signal to the channel
-        safe_state.MutableUse([channel_id](SharedState &state) {
-          state.to_kill.insert(channel_id);
+        auto result = safe_state.MutableUse([&to_delete](SharedState &state) {
+          if (!state.channel_exists(to_delete.id)) {
+            return VOResponse::Error("error: unknown channel");
+          }
+          state.to_kill.insert(to_delete.id);
+          return VOResponse::OK("channel killed");
         });
-        r(VOResponse::Error("error: channel killed"));
-        return;
+        return r(result, result.is_error ? HTTPResponseCode.BadRequest
+                                         : HTTPResponseCode.OK);
       }
       if (r.method != "POST") {
         r(VOResponse::Error("error: not supported"),
@@ -56,6 +51,7 @@ int main(int argc, char **argv) {
         return;
       }
 
+      // Handle channel creation
       VOChannelCreate new_channel;
       try {
         new_channel = ParseJSON<VOChannelCreate>(r.body);
@@ -83,6 +79,7 @@ int main(int argc, char **argv) {
                                          : HTTPResponseCode.OK));
     });
 
+    // Handle graceful stop
     scope += http.Register("/stop", [&safe_state](Request r) {
       safe_state.MutableUse([](SharedState &state) { state.die = true; });
       r(VOResponse::OK("server stop"));
