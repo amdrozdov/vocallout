@@ -12,6 +12,11 @@ struct ControlSignal final {
   bool stop = false;
 };
 
+struct joiner_state final {
+  bool die = false;
+  std::vector<std::thread> to_join;
+};
+
 CURRENT_STRUCT(VOChannelCreate) {
   CURRENT_FIELD(id, std::string);
   CURRENT_FIELD(in_port, uint8_t);

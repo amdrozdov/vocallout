@@ -1,7 +1,5 @@
 #include "server.h"
 
-using namespace current::json;
-
 DEFINE_uint16(port, 8080, "The local port to use.");
 DEFINE_uint32(n, 3, "Max number of audio streams");
 DEFINE_string(api_token, "", "HTTP api token to use");
@@ -16,6 +14,8 @@ struct SharedState final {
   }
 };
 
+void sessions_collector(current::WaitableAtomic<SharedState>& safe_state){}
+
 int main(int argc, char **argv) {
   ParseDFlags(&argc, &argv);
 
@@ -27,35 +27,54 @@ int main(int argc, char **argv) {
     // Need to join and remove finished sessions
     auto joiner = std::thread([&safe_state] {
       while (true) {
-        // Check halt condition
-        auto die = safe_state.ImmutableScopedAccessor()->die;
+        auto j_state = safe_state.WaitFor(
+            [](SharedState const &state) {
+              bool thread_found = false;
+              for (auto &[key, _] : state.threads) {
+                if (!state.channel_exists(key)) {
+                  thread_found = true;
+                  break;
+                }
+              }
+              return state.die || thread_found;
+            },
+            [](SharedState &state) {
+              // collect threads to join
+              // n.b: we need to collect them even if it's time to halt
+              std::vector<std::thread> to_join;
+              std::vector<std::string> keys_to_drop;
+              for (auto &pair : state.threads) {
+                if (!state.channel_exists(pair.first)) {
+                  to_join.push_back(std::move(pair.second));
+                  keys_to_drop.push_back(pair.first);
+                }
+              }
+              // clean up threads map
+              for (auto &to_drop : keys_to_drop) {
+                state.threads.erase(to_drop);
+              }
+              auto j_state = joiner_state{};
+              j_state.die = state.die;
+              j_state.to_join = std::move(to_join);
+              return j_state;
+            },
+            std::chrono::seconds(1));
 
-        // Stop workers if needed
-        safe_state.MutableUse([](SharedState &state) {
-          std::vector<std::string> to_join;
-          for (auto &[key, _] : state.threads) {
-            if (!state.channel_exists(key)) {
-              to_join.push_back(key);
-            }
-          }
-          for (auto &to_drop : to_join) {
-            state.threads[to_drop].join();
-            state.threads.erase(to_drop);
-          }
-        });
-
-        // Exit joiner
-        if (die) {
+        // join worker threads outside
+        for (auto &thread : j_state.to_join) {
+          thread.join();
+        }
+        // exit joiner if needed
+        if (j_state.die) {
           break;
-        } else {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
       }
     });
 
     auto scope = http.Register("/channel", [&safe_state](Request r) {
       if (!FLAGS_api_token.empty() &&
-          (!r.headers.Has("api_token") || (FLAGS_api_token != r.headers["api_token"].value))) {
+          (!r.headers.Has("api_token") ||
+           (FLAGS_api_token != r.headers["api_token"].value))) {
         r(VOResponse::Error("invalid token"), HTTPResponseCode.Forbidden);
         return;
       }
