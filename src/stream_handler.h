@@ -5,8 +5,12 @@
 inline void stream_handler(
     current::WaitableAtomicImpl<SharedState, false>::BasicImpl *safe_state,
     VOChannelCreate new_channel) {
-  std::cout << "Channel '" << new_channel.id << "' is online on port "
-            << int(new_channel.in_port) << std::endl;
+
+  safe_state->MutableUse([&new_channel](SharedState &state) {
+    std::cout << "Channel '" << new_channel.id << "' is online on port "
+              << int(new_channel.in_port) << std::endl;
+  });
+
   std::string channel_id = new_channel.id;
   while (true) {
     auto control = safe_state->WaitFor(
@@ -25,8 +29,10 @@ inline void stream_handler(
         // TODO: reduce this time (only for debug)
         std::chrono::seconds(1));
     if (control.stop) {
-      std::cout << "Channel '" << channel_id << "' has been stopped"
-                << std::endl;
+      safe_state->MutableUse([&channel_id](SharedState &state) {
+        std::cout << "Channel '" << channel_id << "' has been stopped"
+                  << std::endl;
+      });
       break;
     }
 
