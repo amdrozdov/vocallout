@@ -17,6 +17,16 @@ struct joiner_state final {
   std::vector<std::thread> to_join;
 };
 
+struct SharedState final {
+  bool die = false;
+  std::unordered_set<std::string> to_kill;
+  std::map<std::string, std::thread> threads;
+  std::map<std::string, std::string> channel_control;
+  bool channel_exists(const std::string &channel_id) const {
+    return channel_control.find(channel_id) != channel_control.end();
+  }
+};
+
 CURRENT_STRUCT(VOChannelCreate) {
   CURRENT_FIELD(id, std::string);
   CURRENT_FIELD(in_port, uint8_t);

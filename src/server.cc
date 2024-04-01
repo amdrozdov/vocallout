@@ -1,75 +1,20 @@
 #include "server.h"
+#include "sessions_collector.h"
 
 DEFINE_uint16(port, 8080, "The local port to use.");
 DEFINE_uint32(n, 3, "Max number of audio streams");
 DEFINE_string(api_token, "", "HTTP api token to use");
 
-struct SharedState final {
-  bool die = false;
-  std::unordered_set<std::string> to_kill;
-  std::map<std::string, std::thread> threads;
-  std::map<std::string, std::string> channel_control;
-  bool channel_exists(const std::string &channel_id) const {
-    return channel_control.find(channel_id) != channel_control.end();
-  }
-};
-
-void sessions_collector(current::WaitableAtomic<SharedState>& safe_state){}
-
 int main(int argc, char **argv) {
   ParseDFlags(&argc, &argv);
 
   try {
+    // Create http server
     auto &http = HTTP(current::net::AcquireLocalPort(FLAGS_port));
-
+    // Create state object for sync
     current::WaitableAtomic<SharedState> safe_state;
-
-    // Need to join and remove finished sessions
-    auto joiner = std::thread([&safe_state] {
-      while (true) {
-        auto j_state = safe_state.WaitFor(
-            [](SharedState const &state) {
-              bool thread_found = false;
-              for (auto &[key, _] : state.threads) {
-                if (!state.channel_exists(key)) {
-                  thread_found = true;
-                  break;
-                }
-              }
-              return state.die || thread_found;
-            },
-            [](SharedState &state) {
-              // collect threads to join
-              // n.b: we need to collect them even if it's time to halt
-              std::vector<std::thread> to_join;
-              std::vector<std::string> keys_to_drop;
-              for (auto &pair : state.threads) {
-                if (!state.channel_exists(pair.first)) {
-                  to_join.push_back(std::move(pair.second));
-                  keys_to_drop.push_back(pair.first);
-                }
-              }
-              // clean up threads map
-              for (auto &to_drop : keys_to_drop) {
-                state.threads.erase(to_drop);
-              }
-              auto j_state = joiner_state{};
-              j_state.die = state.die;
-              j_state.to_join = std::move(to_join);
-              return j_state;
-            },
-            std::chrono::seconds(1));
-
-        // join worker threads outside
-        for (auto &thread : j_state.to_join) {
-          thread.join();
-        }
-        // exit joiner if needed
-        if (j_state.die) {
-          break;
-        }
-      }
-    });
+    // Start sessions collector
+    auto joiner = std::thread(sessions_collector, &safe_state);
 
     auto scope = http.Register("/channel", [&safe_state](Request r) {
       if (!FLAGS_api_token.empty() &&
