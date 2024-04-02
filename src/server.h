@@ -3,6 +3,7 @@
 #include "blocks/http/api.h"
 #include "blocks/json/json.h"
 #include "bricks/dflags/dflags.h"
+#include "bricks/net/tcp/tcp.h"
 #include "bricks/sync/waitable_atomic.h"
 
 struct ControlSignal final {
@@ -29,9 +30,9 @@ struct SharedState final {
 
 CURRENT_STRUCT(VOChannelCreate) {
   CURRENT_FIELD(id, std::string);
-  CURRENT_FIELD(in_port, uint8_t);
+  CURRENT_FIELD(in_port, uint16_t);
   CURRENT_FIELD(out_host, std::string);
-  CURRENT_FIELD(out_port, uint8_t);
+  CURRENT_FIELD(out_port, uint16_t);
 };
 CURRENT_STRUCT(VOChannelDelete) { CURRENT_FIELD(id, std::string); };
 CURRENT_STRUCT(VOResponse) {

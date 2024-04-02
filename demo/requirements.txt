@@ -1,0 +1,4 @@
+librosa
+soundfile
+faster-whisper
+
