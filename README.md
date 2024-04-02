@@ -8,7 +8,7 @@ make
 ```
 
 ## How to run the demo
-1. Prepare and the asr in `demo` directory
+1. Prepare and run the asr in `demo` directory
 2. Build the project
 3. Run streaming server
 
