@@ -12,7 +12,7 @@
 # When this `Makefile` is used to run a `cmake`-based Current build, user-defined dependencies go here.
 # No quotes needed. Space- or colon- or semicolon-separated all work fine.
 # TODO(dkorolev): Test that this works with `leveldb` too.
-C5T_DEPS=
+C5T_DEPS=websockets
 
 # Set this var to anything non-empty to speed up builds that do not require `googletest`.
 C5T_NO_GTEST=
@@ -66,3 +66,6 @@ CMakeLists.txt:
 
 clean:
 	rm -rf "${DEBUG_BUILD_DIR}" "${RELEASE_BUILD_DIR}"
+
+run:
+	./.current/vocallout --config=./demo/config.json
