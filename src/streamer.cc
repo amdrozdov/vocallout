@@ -1,9 +1,13 @@
-#include "../current/blocks/xterm/progress.h"
-#include "../current/blocks/xterm/vt100.h"
-#include "../current/bricks/dflags/dflags.h"
-#include "../current/bricks/net/tcp/tcp.h"
-#include "../current/bricks/strings/printf.h"
-#include "../current/bricks/time/chrono.h"
+#include "pls.h"
+
+PLS_IMPORT("C5T", "https://github.com/c5t/current");
+
+#include "blocks/xterm/progress.h"
+#include "blocks/xterm/vt100.h"
+#include "bricks/dflags/dflags.h"
+#include "bricks/net/tcp/tcp.h"
+#include "bricks/strings/printf.h"
+#include "bricks/time/chrono.h"
 #include "third_party/wav.h"
 
 DEFINE_string(host, "127.0.0.1", "The destination address to send data to.");

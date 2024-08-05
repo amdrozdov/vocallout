@@ -1,3 +1,8 @@
+#include "pls.h"
+
+PLS_IMPORT("C5T", "https://github.com/c5t/current");
+PLS_IMPORT("websockets", "https://github.com/current-deps/websockets")
+
 #include "router.h"
 #include "vocallhout.h"
 const std::string VERSION = "Vocallout v.1.0.0 Beta";
