@@ -1,7 +1,10 @@
 #include "pls.h"
 
-PLS_IMPORT("C5T", "https://github.com/c5t/current");
-PLS_IMPORT("websockets", "https://github.com/current-deps/websockets")
+PLS_ADD("C5T", "https://github.com/c5t/current");
+PLS_DEP("C5T");
+PLS_ADD("websockets", "https://github.com/current-deps/websockets");
+PLS_DEP("websockets");
+PLS_DEP("ws");
 
 #include "router.h"
 #include "vocallhout.h"

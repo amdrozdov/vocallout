@@ -1,6 +1,7 @@
 #include "pls.h"
 
-PLS_IMPORT("C5T", "https://github.com/c5t/current");
+PLS_ADD("C5T", "https://github.com/c5t/current");
+PLS_DEP("C5T");
 
 #include "blocks/xterm/progress.h"
 #include "blocks/xterm/vt100.h"
