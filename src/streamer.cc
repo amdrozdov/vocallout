@@ -1,7 +1,6 @@
 #include "pls.h"
 
-PLS_ADD("C5T", "https://github.com/c5t/current");
-PLS_DEP("C5T");
+PLS_INCLUDE_HEADER_ONLY_CURRENT();
 
 #include "blocks/xterm/progress.h"
 #include "blocks/xterm/vt100.h"

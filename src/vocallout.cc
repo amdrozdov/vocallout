@@ -1,9 +1,7 @@
 #include "pls.h"
 
-PLS_ADD("C5T", "https://github.com/c5t/current");
-PLS_DEP("C5T");
-PLS_ADD("websockets", "https://github.com/current-deps/websockets");
-PLS_DEP("websockets");
+PLS_INCLUDE_HEADER_ONLY_CURRENT();
+PLS_ADD_DEP("websockets", "https://github.com/current-deps/websockets");
 PLS_DEP("ws");
 
 #include "router.h"
