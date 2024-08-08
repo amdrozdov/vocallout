@@ -83,8 +83,6 @@ public:
     port_ = port;
     n_threads_ = n_threads;
     timeout_ms_ = timeout_ms;
-  };
-  void start() {
     server_ = std::make_unique<WebsocketServer>(
         [this](WebsocketClient &client, std::vector<uint8_t> data, int type) {
           on_data(client, data, type);
@@ -92,10 +90,11 @@ public:
         [this](WebsocketClient &client) { on_connect(client); },
         [this](WebsocketClient &client) { on_disconnect(client); }, port_,
         host_, n_threads_, timeout_ms_);
-
+  };
+  void start() {
+    server_->start();
     std::cout << "Started stream router on " << host_ << ":" << port_
               << std::endl;
-    server_->start();
   }
   void stop() {
     safe_state_.MutableUse([](SharedState &state) { state.die = true; });
