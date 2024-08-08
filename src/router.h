@@ -9,6 +9,7 @@ private:
   uint16_t port_;
   int n_threads_;
   int timeout_ms_;
+  std::unique_ptr<WebsocketServer> server_;
 
   void on_connect(WebsocketClient &client) {
     auto id = client.Address() + ":" + client.Port();
@@ -37,8 +38,10 @@ private:
       try {
         if (state.channel_states[id] == 0) {
           // Parse init message and configure the channel
+          auto to_parse = std::string(data.begin(), data.end());
           VOHandshakeMessage handshake =
-              ParseJSON<VOHandshakeMessage>((const char *)(data.data()));
+              ParseJSON<VOHandshakeMessage>(to_parse);
+
           auto node = state.next_node(id, handshake.node_selector);
           state.channels[id] =
               Channel{std::make_unique<current::net::Connection>(
@@ -57,7 +60,8 @@ private:
         }
       } catch (const current::Exception &e) {
         std::cout << "error"
-                  << ": " << e.OriginalDescription() << std::endl;
+                  << ": " << e.OriginalDescription() << " "
+                  << e.DetailedDescription() << std::endl;
         // PBX is responsible for reconnects, in case of error we have to drop
         // the connection and let PBX decide/reconnect if needed
         client.Close();
@@ -81,7 +85,7 @@ public:
     timeout_ms_ = timeout_ms;
   };
   void start() {
-    auto server = WebsocketServer(
+    server_ = std::make_unique<WebsocketServer>(
         [this](WebsocketClient &client, std::vector<uint8_t> data, int type) {
           on_data(client, data, type);
         },
@@ -91,7 +95,7 @@ public:
 
     std::cout << "Started stream router on " << host_ << ":" << port_
               << std::endl;
-    server.start();
+    server_->start();
   }
   void stop() {
     safe_state_.MutableUse([](SharedState &state) { state.die = true; });

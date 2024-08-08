@@ -10,3 +10,6 @@ fmt:
 
 run:
 	./.debug/vocallout --config=./demo/config.json
+
+memory_run:
+	valgrind --leak-check=yes ./.debug/vocallout --config=./demo/config.json
