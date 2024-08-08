@@ -1,12 +1,11 @@
-.PHONY: fmt run all
+.PHONY: fmt run all memory_run docker docker_run
 CLANG_FORMAT=$(shell echo "$${CLANG_FORMAT:-clang-format}")
 all:
-	#pip install plsbuild
+	pls version >/dev/null || pip install plsbuild
 	pls b
 
 fmt:
 	${CLANG_FORMAT} -i src/*.cc src/*.h
-
 
 run:
 	./.debug/vocallout --config=./demo/config.json
