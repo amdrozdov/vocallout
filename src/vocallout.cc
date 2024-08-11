@@ -59,8 +59,9 @@ int main(int argc, char **argv) {
   std::cout << VERSION << std::endl;
   bool stop = false;
   auto mapping = parse_config(FLAGS_config);
-  auto router = StreamRouter(mapping, FLAGS_host, FLAGS_port, FLAGS_n_threads,
-                             FLAGS_timeout_ms);
+  auto ws_config = WSConfig::FromFields(FLAGS_host, FLAGS_port, FLAGS_n_threads,
+                                        FLAGS_timeout_ms);
+  auto router = StreamRouter(mapping, ws_config);
   try {
     auto &http = HTTP(current::net::AcquireLocalPort(FLAGS_http_port));
     auto scope = http.Register("/metrics", [&router](Request r) {
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
           HTTPResponseCode.BadRequest);
         return;
       }
-      r(VOStatus::Response("OK", router.streams_count()));
+      r(VOStatus::Response("OK", router.StreamsCount()));
     });
 
     scope += http.Register("/stop", [&router, &stop](Request r) {
@@ -85,12 +86,11 @@ int main(int argc, char **argv) {
         r(VOResponse::Error("invalid token"), HTTPResponseCode.Forbidden);
         return;
       }
-      router.stop();
+      router.BreakConnections();
       stop = true;
       r(VOResponse::OK("server stop"));
     });
     std::cout << "Started http server on port " << FLAGS_http_port << std::endl;
-    router.start();
     while (!stop) {
       sleep(1);
     }

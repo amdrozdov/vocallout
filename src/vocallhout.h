@@ -49,6 +49,22 @@ CURRENT_STRUCT(VOResponse) {
   };
 };
 
+CURRENT_STRUCT(WSConfig) {
+  CURRENT_FIELD(host, std::string);
+  CURRENT_FIELD(port, uint16_t);
+  CURRENT_FIELD(n_threads, int);
+  CURRENT_FIELD(timeout_ms, int);
+  static WSConfig FromFields(std::string host = "0.0.0.0", uint16_t port = 8080,
+                             int n_threads = 32, int timeout_ms = 1000) {
+    WSConfig conf;
+    conf.host = host;
+    conf.port = port;
+    conf.n_threads = n_threads;
+    conf.timeout_ms = timeout_ms;
+    return conf;
+  };
+};
+
 CURRENT_STRUCT(VOHandshakeMessage) {
   CURRENT_FIELD(cid, std::string);
   CURRENT_FIELD(node_selector, std::string);
@@ -79,5 +95,11 @@ struct SharedState final {
       channels[id].round_robin_id = 0;
     }
     return mapping[node_selector][channels[id].round_robin_id];
+  }
+  static struct SharedState
+  FromMapping(std::map<std::string, std::vector<VONode>> mapping) {
+    SharedState state;
+    state.mapping = mapping;
+    return state;
   }
 };

@@ -5,11 +5,8 @@
 class StreamRouter {
 private:
   current::WaitableAtomic<SharedState> safe_state_;
-  std::string host_;
-  uint16_t port_;
-  int n_threads_;
-  int timeout_ms_;
-  std::unique_ptr<WebsocketServer> server_;
+  WSConfig ws_config_;
+  WebsocketServer server_;
 
   void on_connect(WebsocketClient &client) {
     auto id = client.Address() + ":" + client.Port();
@@ -75,31 +72,25 @@ private:
 
 public:
   explicit StreamRouter(std::map<std::string, std::vector<VONode>> config,
-                        std::string host = "0.0.0.0", uint16_t port = 8080,
-                        int n_threads = 0, int timeout_ms = 1000) {
-    safe_state_.MutableUse(
-        [config](SharedState &state) { state.mapping = config; });
-    host_ = host;
-    port_ = port;
-    n_threads_ = n_threads;
-    timeout_ms_ = timeout_ms;
-    server_ = std::make_unique<WebsocketServer>(
-        [this](WebsocketClient &client, std::vector<uint8_t> data, int type) {
-          on_data(client, data, type);
-        },
-        [this](WebsocketClient &client) { on_connect(client); },
-        [this](WebsocketClient &client) { on_disconnect(client); }, port_,
-        host_, n_threads_, timeout_ms_);
+                        WSConfig ws_config)
+      : safe_state_(current::WaitableAtomic<SharedState>(
+            SharedState::FromMapping(config))),
+        ws_config_(ws_config),
+        server_(WebsocketServer(
+            [this](WebsocketClient &client, std::vector<uint8_t> data,
+                   int type) { on_data(client, data, type); },
+            [this](WebsocketClient &client) { on_connect(client); },
+            [this](WebsocketClient &client) { on_disconnect(client); },
+            ws_config_.port, ws_config_.host, ws_config_.n_threads,
+            ws_config_.timeout_ms)) {
+    server_.start();
+    std::cout << "Started stream router on " << ws_config_.host << ":"
+              << ws_config_.port << std::endl;
   };
-  void start() {
-    server_->start();
-    std::cout << "Started stream router on " << host_ << ":" << port_
-              << std::endl;
-  }
-  void stop() {
+  void BreakConnections() {
     safe_state_.MutableUse([](SharedState &state) { state.die = true; });
   }
-  uint32_t streams_count() {
+  uint32_t StreamsCount() {
     auto result = safe_state_.MutableUse(
         [](SharedState &state) { return state.channels.size(); });
     return result;
