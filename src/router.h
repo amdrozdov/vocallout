@@ -5,7 +5,7 @@
 class StreamRouter {
 private:
   current::WaitableAtomic<SharedState> safe_state_;
-  WSConfig ws_config_;
+  const WSConfig ws_config_;
   WebsocketServer server_;
 
   void on_connect(WebsocketClient &client) {
@@ -90,10 +90,8 @@ public:
   void BreakConnections() {
     safe_state_.MutableUse([](SharedState &state) { state.die = true; });
   }
-  uint32_t StreamsCount() {
-    auto result = safe_state_.MutableUse(
-        [](SharedState &state) { return state.channels.size(); });
-    return result;
+  const uint32_t StreamsCount() {
+      return safe_state_.ImmutableScopedAccessor()->channels.size();
   }
   StreamRouter(const StreamRouter &) = delete;
   ~StreamRouter() = default;
