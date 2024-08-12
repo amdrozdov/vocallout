@@ -6,7 +6,7 @@ PLS_DEP("ws");
 
 #include "router.h"
 #include "vocallhout.h"
-const std::string VERSION = "Vocallout v.1.0.0 Beta";
+const std::string VERSION = "Vocallout v.1.0.1 Beta";
 
 DEFINE_uint16(http_port, 8081, "Http server port");
 DEFINE_string(api_token, "", "HTTP api token to use");

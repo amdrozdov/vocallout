@@ -70,7 +70,7 @@ public:
 };
 
 CURRENT_STRUCT(VOHandshakeMessage) {
-  CURRENT_FIELD(cid, std::string);
+  CURRENT_FIELD(call_id, std::string);
   CURRENT_FIELD(node_selector, std::string);
   CURRENT_FIELD(speakers, std::vector<std::string>);
 };
