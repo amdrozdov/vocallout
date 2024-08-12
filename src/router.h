@@ -90,8 +90,8 @@ public:
   void BreakConnections() {
     safe_state_.MutableUse([](SharedState &state) { state.die = true; });
   }
-  const uint32_t StreamsCount() {
-      return safe_state_.ImmutableScopedAccessor()->channels.size();
+  uint32_t StreamsCount() const {
+    return safe_state_.ImmutableScopedAccessor()->channels.size();
   }
   StreamRouter(const StreamRouter &) = delete;
   ~StreamRouter() = default;

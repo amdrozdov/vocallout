@@ -51,7 +51,8 @@ CURRENT_STRUCT(VOResponse) {
 
 CURRENT_STRUCT(WSConfig) {
 protected:
-    CURRENT_DEFAULT_CONSTRUCTOR(WSConfig){};
+  CURRENT_DEFAULT_CONSTRUCTOR(WSConfig){};
+
 public:
   CURRENT_FIELD(host, std::string);
   CURRENT_FIELD(port, uint16_t);
