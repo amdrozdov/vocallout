@@ -1,5 +1,4 @@
 # Current
-CMakeLists.txt
 current/
 googletest/
 .current/
@@ -43,3 +42,13 @@ googletest/
 *.app
 current/
 googletest/
+
+# Added automatically by `pls`. Okay to push to git.
+.debug
+.pls
+.release
+.vscode
+C5T
+CMakeLists.txt
+websockets
+wsServerForkedFromTheldus
