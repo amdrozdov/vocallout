@@ -6,7 +6,7 @@
 #include "bricks/net/tcp/tcp.h"
 #include "bricks/sync/waitable_atomic.h"
 
-#include "websockets.h"
+#include "src/websockets.h"
 
 const std::string default_selector = "default";
 

@@ -2,7 +2,6 @@
 
 PLS_INCLUDE_HEADER_ONLY_CURRENT();
 PLS_ADD_DEP("websockets", "https://github.com/current-deps/websockets");
-PLS_DEP("ws");
 
 #include "router.h"
 #include "vocallhout.h"
