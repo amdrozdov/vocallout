@@ -5,7 +5,7 @@ PLS_ADD_DEP("websockets", "https://github.com/current-deps/websockets");
 
 #include "router.h"
 #include "vocallout.h"
-const std::string VERSION = "Vocallout v.1.0.1 Beta";
+const std::string VERSION = "Vocallout v.1.1.0 Beta";
 
 DEFINE_uint16(http_port, 8081, "Http server port");
 DEFINE_string(api_token, "", "HTTP api token to use");
