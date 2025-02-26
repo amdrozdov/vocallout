@@ -4,6 +4,7 @@ RUN apk update && apk add --no-cache build-base gcc git cmake python3 py3-pip ba
 RUN pip3 install plsbuild
 
 COPY src /src
+COPY CMakeLists.txt /
 RUN pls build
 RUN cp ./.debug/vocallout /vocallout
 

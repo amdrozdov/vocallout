@@ -52,3 +52,6 @@ C5T
 CMakeLists.txt
 websockets
 wsServerForkedFromTheldus
+
+# Added automatically by `pls`. Okay to push to git.
+wsServer
