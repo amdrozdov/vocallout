@@ -24,7 +24,7 @@ private:
       std::cout << "Client " << id << " disconnected" << std::endl;
     });
   }
-  void on_data(WebsocketClient &client, std::vector<uint8_t> data, int type) {
+  void on_data(WebsocketClient &client, std::string_view data, int type) {
     auto id = client.Address() + ":" + client.Port();
     safe_state_.MutableUse([&id, &data, &client](SharedState &state) {
       // do the handshake with ASR or stream audio
@@ -48,7 +48,8 @@ private:
           // Do the handshake: send init message and read sync byte
           state.channels[id].conn->BlockingWrite(data.data(), data.size(),
                                                  true);
-          state.channels[id].conn->BlockingRead(&data[0], 1);
+          uint8_t read_to = 0;
+          state.channels[id].conn->BlockingRead(&read_to, 1);
           // Update channel state - ready to stream
           state.channel_states[id] = 1;
         } else {
@@ -77,7 +78,7 @@ public:
             SharedState::FromMapping(config))),
         ws_config_(ws_config),
         server_(WebsocketServer(
-            [this](WebsocketClient &client, std::vector<uint8_t> data,
+            [this](WebsocketClient &client, std::string_view data,
                    int type) { on_data(client, data, type); },
             [this](WebsocketClient &client) { on_connect(client); },
             [this](WebsocketClient &client) { on_disconnect(client); },
