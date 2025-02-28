@@ -75,6 +75,7 @@ int main(int argc, char **argv) {
       r(VOResponse::OK("server stop"));
     });
     std::cout << "Started http server on port " << FLAGS_http_port << std::endl;
+    router.Join();
     while (!stop) {
       sleep(1);
     }

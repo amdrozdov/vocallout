@@ -4,7 +4,7 @@
 #include "vocallout.h"
 
 class RedisSync {
-// Redis client wrapper for parsing vocallout config
+  // Redis client wrapper for parsing vocallout config
 protected:
   const std::string redis_key = "vocallout_config";
   RedisClient db_;
@@ -125,7 +125,9 @@ public:
     server_.start();
     std::cout << "Started stream router on " << ws_config_.host << ":"
               << ws_config_.port << std::endl;
+  };
 
+  void Join() {
     std::string host = safe_env("REDIS_HOST");
     int port = std::atoi(safe_env("REDIS_PORT").c_str());
     std::string user = safe_env("REDIS_USER");
@@ -134,14 +136,14 @@ public:
         pass.length() > 0) {
       // Start redis sync thread if redis credentials and url are available
       auto sync_thread = std::thread([host, port, user, pass, this]() {
-        redis_sync(host, port, user, pass);
+        RedisProc(host, port, user, pass);
       });
       sync_thread.join();
     }
-  };
+  }
 
-  void redis_sync(std::string host, int port, std::string user,
-                  std::string pass) {
+  void RedisProc(std::string host, int port, std::string user,
+                 std::string pass) {
     auto sync_ = RedisSync(host, port, user, pass);
     std::cout << "Started redis sync" << std::endl;
     while (true) {
