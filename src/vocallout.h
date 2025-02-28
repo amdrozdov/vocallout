@@ -68,11 +68,16 @@ public:
     return conf;
   };
 };
+CURRENT_STRUCT(VOMeta) {
+  CURRENT_FIELD(account_id, std::string);
+  CURRENT_FIELD(configuration_id, std::string);
+};
 
 CURRENT_STRUCT(VOHandshakeMessage) {
   CURRENT_FIELD(call_id, std::string);
-  CURRENT_FIELD(node_selector, std::string);
+  CURRENT_FIELD(node_selector, Optional<std::string>);
   CURRENT_FIELD(speakers, std::vector<std::string>);
+  CURRENT_FIELD(meta, VOMeta);
 };
 
 struct Channel final {
@@ -107,3 +112,34 @@ struct SharedState final {
     return state;
   }
 };
+
+std::pair<bool, std::map<std::string, std::vector<VONode>>>
+parse_config(std::string conf) {
+  std::map<std::string, std::vector<VONode>> mapping;
+  bool is_ok = true;
+  try {
+    const current::json::JSONValue parsed =
+        current::json::ParseJSONUniversally(conf);
+    for (const current::json::JSONObject::const_element element :
+         Value<current::json::JSONObject>(parsed)) {
+      mapping[element.key] = ParseJSON<std::vector<VONode>>(
+          current::json::AsJSON(element.value).c_str());
+    }
+  } catch (JSONSchemaException &e) {
+    std::cout << "Error: Invalid schema in the configuration file."
+              << std::endl;
+    is_ok = false;
+  } catch (TypeSystemParseJSONException &e) {
+    std::cout << "Error: Invalid json in the configuration file." << std::endl;
+    is_ok = false;
+  }
+  return std::make_pair(is_ok, mapping);
+}
+
+std::string safe_env(std::string key) {
+  char *env = std::getenv(key.c_str());
+  if (env == NULL) {
+    return "";
+  }
+  return std::string(env);
+}
