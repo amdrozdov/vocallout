@@ -2,6 +2,7 @@
 
 PLS_INCLUDE_HEADER_ONLY_CURRENT();
 PLS_ADD_DEP("websockets", "https://github.com/current-deps/websockets");
+PLS_ADD_DEP("redis", "https://github.com/current-deps/redis");
 
 #include "router.h"
 #include "vocallout.h"
@@ -26,30 +27,14 @@ std::string read_config(std::string path) {
   return buffer.str();
 }
 
-std::map<std::string, std::vector<VONode>> parse_config(std::string path) {
+std::map<std::string, std::vector<VONode>>
+load_and_parse_config(std::string path) {
   auto conf = read_config(path);
-  std::map<std::string, std::vector<VONode>> mapping;
-  try {
-    const current::json::JSONValue parsed =
-        current::json::ParseJSONUniversally(conf);
-    for (const current::json::JSONObject::const_element element :
-         Value<current::json::JSONObject>(parsed)) {
-      mapping[element.key] = ParseJSON<std::vector<VONode>>(
-          current::json::AsJSON(element.value).c_str());
-    }
-  } catch (JSONSchemaException &e) {
-    std::cout << "Error: Invalid schema in the configuration file."
-              << std::endl;
-    exit(1);
-  } catch (TypeSystemParseJSONException &e) {
-    std::cout << "Error: Invalid json in the configuration file." << std::endl;
+  auto result = parse_config(conf);
+  if (!result.first) {
     exit(1);
   }
-  if (mapping.find("default") == mapping.end()) {
-    std::cout << "Error: No default route configuration." << std::endl;
-    exit(1);
-  }
-  return mapping;
+  return result.second;
 }
 
 int main(int argc, char **argv) {
@@ -57,7 +42,7 @@ int main(int argc, char **argv) {
 
   std::cout << VERSION << std::endl;
   bool stop = false;
-  auto mapping = parse_config(FLAGS_config);
+  auto mapping = load_and_parse_config(FLAGS_config);
   auto ws_config = WSConfig::FromFields(FLAGS_host, FLAGS_port, FLAGS_n_threads,
                                         FLAGS_timeout_ms);
   auto router = StreamRouter(mapping, ws_config);

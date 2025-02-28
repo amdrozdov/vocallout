@@ -55,3 +55,7 @@ wsServerForkedFromTheldus
 
 # Added automatically by `pls`. Okay to push to git.
 wsServer
+
+# Added automatically by `pls`. Okay to push to git.
+hiredis
+redis

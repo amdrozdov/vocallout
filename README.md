@@ -1,6 +1,9 @@
 # vocallout
 High throughput real-time ASR streams router [WIP]
 
+v1.1 - Redis sync mode: required env variables `REDIS_HOST`, `REDIS_PORT`, `REDIS_USER`, `REDIS_PASS`. In this mode the routing table will be in sync with redis automatically (but will not call redis on every connection)
+
+
 ## build
 The build will automatically get cmake files from Current and build the server
 ```
