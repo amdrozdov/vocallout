@@ -9,6 +9,10 @@
 #include "src/websockets.h"
 
 const std::string default_selector = "default";
+const std::string mode_listen = "listen";
+const std::string mode_voicebot = "voicebot";
+const std::string proto_text = "text";
+const std::string proto_bin = "bin";
 
 CURRENT_STRUCT(VONode) {
   CURRENT_FIELD(host, std::string);
@@ -58,13 +62,19 @@ public:
   CURRENT_FIELD(port, uint16_t);
   CURRENT_FIELD(n_threads, int);
   CURRENT_FIELD(timeout_ms, int);
+  CURRENT_FIELD(mode, std::string);
+  CURRENT_FIELD(proto, std::string);
   static WSConfig FromFields(std::string host = "0.0.0.0", uint16_t port = 8080,
-                             int n_threads = 32, int timeout_ms = 1000) {
+                             int n_threads = 32, int timeout_ms = 1000,
+                             std::string mode = mode_listen,
+                             std::string proto = proto_text) {
     WSConfig conf;
     conf.host = host;
     conf.port = port;
     conf.n_threads = n_threads;
     conf.timeout_ms = timeout_ms;
+    conf.mode = mode;
+    conf.proto = proto;
     return conf;
   };
 };
@@ -89,6 +99,8 @@ struct Channel final {
 struct SharedState final {
   bool die = false;
   std::map<std::string, Channel> channels;
+  std::map<std::string, std::pair<VONode, std::string>> channel_nodes;
+  std::deque<std::string> readers_queue;
   std::map<std::string, uint32_t> channel_states;
   std::map<std::string, std::vector<VONode>> mapping;
   bool channel_exists(const std::string &channel_id) const {
@@ -142,4 +154,13 @@ std::string safe_env(std::string key) {
     return "";
   }
   return std::string(env);
+}
+
+std::string pack_free_fs_str(std::string_view bytes) {
+  // This code is used to interract with free version of mod_audio.
+  // In payed version we can send raw audio directly
+  std::string packed = current::Base64Encode(bytes.data(), bytes.size());
+  return "{\"type\": \"streamAudio\", \"data\":{ \"audioDataType\": \"raw\", "
+         "\"sampleRate\": 16000, \"audioData\":\"" +
+         packed + "\"}}";
 }

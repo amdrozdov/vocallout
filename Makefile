@@ -14,7 +14,7 @@ memory_run:
 	valgrind --leak-check=yes ./.debug/vocallout --config=./demo/config.json
 
 docker:
-	docker build -t vocallout_1_1 .
+	docker build -t vocallout_1_2 .
 
 docker_run: docker
 	docker run --rm --net=host vocallout

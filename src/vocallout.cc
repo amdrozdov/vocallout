@@ -6,10 +6,12 @@ PLS_ADD_DEP("redis", "https://github.com/current-deps/redis");
 
 #include "router.h"
 #include "vocallout.h"
-const std::string VERSION = "Vocallout v.1.1.0 Beta";
+const std::string VERSION = "Vocallout v.1.1.46 Beta";
 
 DEFINE_uint16(http_port, 8081, "Http server port");
 DEFINE_string(api_token, "", "HTTP api token to use");
+DEFINE_string(mode, mode_listen, "Streaming mode [listen|voicebot]");
+DEFINE_string(proto, proto_text, "Receiver mode [text|bin]");
 DEFINE_uint16(port, 8080, "The local port to use.");
 DEFINE_string(host, "0.0.0.0", "Host to bind the server");
 DEFINE_string(config, "config.json", "path to the configuration file");
@@ -41,10 +43,22 @@ int main(int argc, char **argv) {
   ParseDFlags(&argc, &argv);
 
   std::cout << VERSION << std::endl;
+  std::vector<std::string> modes = {mode_listen, mode_voicebot};
+  if (std::find(modes.begin(), modes.end(), FLAGS_mode) == modes.end()) {
+    std::cout << "Error: unknown mode '" << FLAGS_mode << "'" << std::endl;
+    return 1;
+  }
+  std::vector<std::string> protos = {proto_text, proto_bin};
+  if (std::find(protos.begin(), protos.end(), FLAGS_proto) == protos.end()) {
+    std::cout << "Error: unknown receiver protocol '" << FLAGS_proto << "'"
+              << std::endl;
+    return 1;
+  }
   bool stop = false;
   auto mapping = load_and_parse_config(FLAGS_config);
-  auto ws_config = WSConfig::FromFields(FLAGS_host, FLAGS_port, FLAGS_n_threads,
-                                        FLAGS_timeout_ms);
+  auto ws_config =
+      WSConfig::FromFields(FLAGS_host, FLAGS_port, FLAGS_n_threads,
+                           FLAGS_timeout_ms, FLAGS_mode, FLAGS_proto);
   auto router = StreamRouter(mapping, ws_config);
   try {
     auto &http = HTTP(current::net::AcquireLocalPort(FLAGS_http_port));
