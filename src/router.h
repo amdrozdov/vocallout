@@ -2,6 +2,7 @@
 
 #include "redis.h"
 #include "vocallout.h"
+#include "to_socket.h"
 
 class RedisSync {
   // Redis client wrapper for parsing vocallout config
@@ -77,9 +78,10 @@ private:
             selector = Value(handshake.node_selector);
 
           auto node = state.next_node(id, selector);
+          // FIXME: replace with net::current::SocketWithTimeout after PR merge
           state.channels[id] =
               Channel{std::make_unique<current::net::Connection>(
-                          current::net::Connection(current::net::ClientSocket(
+                          current::net::Connection(SocketWithTimeout(
                               node.host, node.port))),
                       selector, 0};
           // Do the handshake: send init message and read sync byte
