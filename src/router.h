@@ -2,7 +2,6 @@
 
 #include "redis.h"
 #include "vocallout.h"
-#include "to_socket.h"
 
 class RedisSync {
   // Redis client wrapper for parsing vocallout config
@@ -58,7 +57,7 @@ private:
   }
   void on_data(WebsocketClient &client, std::string_view data, int type) {
     auto id = client.Address() + ":" + client.Port();
-    safe_state_.MutableUse([&id, &data, &client](SharedState &state) {
+    safe_state_.MutableUse([&id, &data, &client, this](SharedState &state) {
       // do the handshake with ASR or stream audio
       if (!state.channel_exists(id)) {
         std::cout << "Channel not found" << std::endl;
@@ -78,11 +77,12 @@ private:
             selector = Value(handshake.node_selector);
 
           auto node = state.next_node(id, selector);
-          // FIXME: replace with net::current::SocketWithTimeout after PR merge
+          const timeval tcp_read_to = {ws_config_.timeout_read_sec, 0};
+          const timeval tcp_write_to = {ws_config_.timeout_write_sec, 0};
           state.channels[id] =
               Channel{std::make_unique<current::net::Connection>(
-                          current::net::Connection(SocketWithTimeout(
-                              node.host, node.port))),
+                          current::net::Connection(current::net::ClientSocket(
+                              node.host, node.port, tcp_read_to, tcp_write_to))),
                       selector, 0};
           // Do the handshake: send init message and read sync byte
           state.channels[id].conn->BlockingWrite(data.data(), data.size(),
