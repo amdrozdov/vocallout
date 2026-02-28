@@ -57,13 +57,13 @@ private:
   }
   void on_data(WebsocketClient &client, std::string_view data, int type) {
     auto id = client.Address() + ":" + client.Port();
-    safe_state_.MutableUse([&id, &data, &client](SharedState &state) {
+    safe_state_.MutableUse([&id, &data, &client, this](SharedState &state) {
       // do the handshake with ASR or stream audio
-      if (!state.channel_exists(id)) {
-        std::cout << "Channel not found" << std::endl;
-        client.Close();
-      }
       try {
+        if (!state.channel_exists(id)) {
+          std::cout << "Channel not found" << std::endl;
+          client.Close();
+        }
         if (state.channel_states[id] == 0) {
           // Parse init message and configure the channel
           auto to_parse = std::string(data.begin(), data.end());
@@ -77,11 +77,13 @@ private:
             selector = Value(handshake.node_selector);
 
           auto node = state.next_node(id, selector);
-          state.channels[id] =
-              Channel{std::make_unique<current::net::Connection>(
-                          current::net::Connection(current::net::ClientSocket(
-                              node.host, node.port))),
-                      selector, 0};
+          const timeval tcp_read_to = {ws_config_.timeout_read_sec, 0};
+          const timeval tcp_write_to = {ws_config_.timeout_write_sec, 0};
+          state.channels[id] = Channel{
+              std::make_unique<current::net::Connection>(
+                  current::net::Connection(current::net::ClientSocket(
+                      node.host, node.port, tcp_read_to, tcp_write_to))),
+              selector, 0};
           // Do the handshake: send init message and read sync byte
           state.channels[id].conn->BlockingWrite(data.data(), data.size(),
                                                  true);
@@ -100,6 +102,9 @@ private:
         // PBX is responsible for reconnects, in case of error we have to drop
         // the connection and let PBX decide/reconnect if needed
         client.Close();
+      } catch (const std::logic_error &e) {
+        std::cout << "error: empty handshake parse exception" << std::endl;
+        client.Close();
       }
       // Finish current buffer transmission and shutdown the connection
       if (state.die) {
@@ -116,10 +121,26 @@ public:
         ws_config_(ws_config),
         server_(WebsocketServer(
             [this](WebsocketClient &client, std::string_view data, int type) {
-              on_data(client, data, type);
+              try {
+                on_data(client, data, type);
+              } catch (...) {
+                std::cout << "error on data wrapper" << std::endl;
+              }
             },
-            [this](WebsocketClient &client) { on_connect(client); },
-            [this](WebsocketClient &client) { on_disconnect(client); },
+            [this](WebsocketClient &client) {
+              try {
+                on_connect(client);
+              } catch (...) {
+                std::cout << "error on connect wrapper" << std::endl;
+              }
+            },
+            [this](WebsocketClient &client) {
+              try {
+                on_disconnect(client);
+              } catch (...) {
+                std::cout << "empty socket on disconnect wrapper" << std::endl;
+              }
+            },
             ws_config_.port, ws_config_.host, ws_config_.n_threads,
             ws_config_.timeout_ms)) {
     server_.start();
@@ -153,15 +174,19 @@ public:
         break;
       }
 
-      // sync with redis
-      auto result = sync_.sync();
-      if (result.first) {
-        // update config after successfull sync
-        safe_state_.MutableUse([&result](SharedState &state) {
-          for (auto &[key, value] : result.second) {
-            state.mapping[key] = value;
-          }
-        });
+      try {
+        // sync with redis
+        auto result = sync_.sync();
+        if (result.first) {
+          // update config after successfull sync
+          safe_state_.MutableUse([&result](SharedState &state) {
+            for (auto &[key, value] : result.second) {
+              state.mapping[key] = value;
+            }
+          });
+        }
+      } catch (...) {
+        std::cout << "Redis sync error" << std::endl;
       }
 
       // wait for next round

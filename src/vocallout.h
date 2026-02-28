@@ -58,13 +58,19 @@ public:
   CURRENT_FIELD(port, uint16_t);
   CURRENT_FIELD(n_threads, int);
   CURRENT_FIELD(timeout_ms, int);
+  CURRENT_FIELD(timeout_read_sec, int);
+  CURRENT_FIELD(timeout_write_sec, int);
   static WSConfig FromFields(std::string host = "0.0.0.0", uint16_t port = 8080,
-                             int n_threads = 32, int timeout_ms = 1000) {
+                             int n_threads = 32, int timeout_ms = 1000,
+                             int timeout_read_sec = 1,
+                             int timeout_write_sec = 1) {
     WSConfig conf;
     conf.host = host;
     conf.port = port;
     conf.n_threads = n_threads;
     conf.timeout_ms = timeout_ms;
+    conf.timeout_read_sec = timeout_read_sec;
+    conf.timeout_write_sec = timeout_write_sec;
     return conf;
   };
 };
