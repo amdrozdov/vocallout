@@ -6,7 +6,7 @@ PLS_ADD_DEP("redis", "https://github.com/current-deps/redis");
 
 #include "router.h"
 #include "vocallout.h"
-const std::string VERSION = "Vocallout v.1.1.4 Beta";
+const std::string VERSION = "Vocallout v.1.1.14 Beta";
 
 DEFINE_uint16(http_port, 8081, "Http server port");
 DEFINE_string(api_token, "", "HTTP api token to use");
@@ -14,9 +14,9 @@ DEFINE_uint16(port, 8080, "The local port to use.");
 DEFINE_string(host, "0.0.0.0", "Host to bind the server");
 DEFINE_string(config, "config.json", "path to the configuration file");
 DEFINE_int32(n_threads, 128, "Max number of worker threads");
-DEFINE_int32(timeout_ms, 3000, "Websocket timeout in milliseconds");
+DEFINE_int32(timeout_ms, 5000, "Websocket timeout in milliseconds");
 DEFINE_int32(read_timeout_sec, 1, "AI engine read tiemout in seconds");
-DEFINE_int32(write_timeout_sec, 1, "AI engine write timeout in seconds");
+DEFINE_int32(write_timeout_sec, 15, "AI engine write timeout in seconds");
 
 std::string read_config(std::string path) {
   std::ifstream reader(path);
@@ -45,9 +45,9 @@ int main(int argc, char **argv) {
   std::cout << VERSION << std::endl;
   bool stop = false;
   auto mapping = load_and_parse_config(FLAGS_config);
-  auto ws_config = WSConfig::FromFields(FLAGS_host, FLAGS_port, FLAGS_n_threads,
-                                        FLAGS_timeout_ms, FLAGS_read_timeout_sec,
-					FLAGS_write_timeout_sec);
+  auto ws_config = WSConfig::FromFields(
+      FLAGS_host, FLAGS_port, FLAGS_n_threads, FLAGS_timeout_ms,
+      FLAGS_read_timeout_sec, FLAGS_write_timeout_sec);
   auto router = StreamRouter(mapping, ws_config);
   try {
     auto &http = HTTP(current::net::AcquireLocalPort(FLAGS_http_port));
